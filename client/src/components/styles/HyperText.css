@@ -1,0 +1,13 @@
+.hyper-text {
+  overflow: hidden;
+  display: inline-flex;
+  cursor: default;
+}
+
+.hyper-text-char {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.hyper-text-space {
+  width: 0.3em;
+}
