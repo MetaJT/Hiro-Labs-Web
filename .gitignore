@@ -31,4 +31,4 @@ npm-debug.log*
 docker-compose.override.yml
 
 # Agents
-CLAUDE.md
+agents

@@ -1,8 +1,16 @@
 .flickering-grid-container {
+  position: relative;
   height: 100%;
   width: 100%;
 }
 
 .flickering-grid-canvas {
+  pointer-events: none;
+}
+
+.flickering-grid-ripple-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   pointer-events: none;
 }

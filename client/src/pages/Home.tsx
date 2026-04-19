@@ -12,6 +12,11 @@ function Home() {
         flickerChance={0.1}
         color="#49596d"
         maxOpacity={0.5}
+        centerGlow
+        centerGlowRadius={450}
+        mouseGlow
+        mouseGlowRadius={300}
+        clickRipple
       />
       <div style={{ textAlign: "center" }} className="home-content">
         <HyperText as="h1" duration={1000} startOnView>
