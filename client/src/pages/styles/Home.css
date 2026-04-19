@@ -1,0 +1,48 @@
+.home-page {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  overflow: hidden;
+}
+
+.home-flickering-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  mask-image: radial-gradient(450px circle at center, white, transparent);
+  -webkit-mask-image: radial-gradient(
+    450px circle at center,
+    white,
+    transparent
+  );
+}
+
+.home-content {
+  position: relative;
+  z-index: 1;
+}
+
+.home-page h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #f0f0f0;
+  letter-spacing: -0.02em;
+}
+
+.home-page p {
+  color: #9ca3af;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+@media (min-width: 640px) {
+  .home-page h1 {
+    font-size: 3rem;
+  }
+
+  .home-page p {
+    font-size: 1.1rem;
+  }
+}
