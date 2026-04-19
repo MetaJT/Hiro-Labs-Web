@@ -1,60 +1,27 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type ComponentType,
-  type RefAttributes,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import "components/styles/HyperText.css";
-import {
-  AnimatePresence,
-  motion,
-  type DOMMotionComponents,
-  type HTMLMotionProps,
-  type MotionProps,
-} from "motion/react";
 
 type CharacterSet = string[] | readonly string[];
 
-const motionElements = {
-  article: motion.article,
-  div: motion.div,
-  h1: motion.h1,
-  h2: motion.h2,
-  h3: motion.h3,
-  h4: motion.h4,
-  h5: motion.h5,
-  h6: motion.h6,
-  li: motion.li,
-  p: motion.p,
-  section: motion.section,
-  span: motion.span,
-} as const;
+type HyperTextElement =
+  | "div"
+  | "h1"
+  | "h2"
+  | "h3"
+  | "h4"
+  | "h5"
+  | "h6"
+  | "p"
+  | "span";
 
-type MotionElementType = Extract<
-  keyof DOMMotionComponents,
-  keyof typeof motionElements
->;
-type HyperTextMotionComponent = ComponentType<
-  Omit<HTMLMotionProps<"div">, "ref"> & RefAttributes<HTMLElement>
->;
-
-interface HyperTextProps extends Omit<MotionProps, "children"> {
-  /** The text content to be animated */
+interface HyperTextProps {
   children: string;
-  /** Optional className for styling */
   className?: string;
-  /** Duration of the animation in milliseconds */
   duration?: number;
-  /** Delay before animation starts in milliseconds */
   delay?: number;
-  /** Component to render as - defaults to div */
-  as?: MotionElementType;
-  /** Whether to start animation when element comes into view */
+  as?: HyperTextElement;
   startOnView?: boolean;
-  /** Whether to trigger animation on hover */
   animateOnHover?: boolean;
-  /** Custom character set for scramble effect. Defaults to uppercase alphabet */
   characterSet?: CharacterSet;
 }
 
@@ -62,7 +29,10 @@ const DEFAULT_CHARACTER_SET = Object.freeze(
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")
 ) as readonly string[];
 
-const getRandomInt = (max: number): number => Math.floor(Math.random() * max);
+const HOVER_INTERVAL_MS = 50;
+
+const getRandomChar = (set: CharacterSet): string =>
+  set[Math.floor(Math.random() * set.length)];
 
 export function HyperText({
   children,
@@ -73,26 +43,17 @@ export function HyperText({
   startOnView = false,
   animateOnHover = true,
   characterSet = DEFAULT_CHARACTER_SET,
-  ...props
 }: HyperTextProps) {
-  const MotionComponent = motionElements[
-    Component
-  ] as HyperTextMotionComponent;
-
   const [displayText, setDisplayText] = useState<string[]>(() =>
     children.split("")
   );
+  const [initialDone, setInitialDone] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const iterationCount = useRef(0);
+  const hoveredIndices = useRef(new Set<number>());
+  const hoverIntervalId = useRef<ReturnType<typeof setInterval> | null>(null);
   const elementRef = useRef<HTMLElement | null>(null);
 
-  const handleAnimationTrigger = () => {
-    if (animateOnHover && !isAnimating) {
-      iterationCount.current = 0;
-      setIsAnimating(true);
-    }
-  };
-
+  // Initial left-to-right reveal animation
   useEffect(() => {
     if (!startOnView) {
       const startTimeout = setTimeout(() => {
@@ -130,23 +91,21 @@ export function HyperText({
       const animate = (currentTime: number) => {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
+        const revealed = progress * maxIterations;
 
-        iterationCount.current = progress * maxIterations;
-
-        setDisplayText((currentText) =>
-          currentText.map((letter, index) =>
-            letter === " "
-              ? letter
-              : index <= iterationCount.current
-                ? children[index]
-                : characterSet[getRandomInt(characterSet.length)]
-          )
+        setDisplayText(
+          children.split("").map((letter, index) => {
+            if (letter === " ") return letter;
+            if (index <= revealed) return children[index];
+            return getRandomChar(characterSet);
+          })
         );
 
         if (progress < 1) {
           animationFrameId = requestAnimationFrame(animate);
         } else {
           setIsAnimating(false);
+          setInitialDone(true);
         }
       };
 
@@ -160,24 +119,72 @@ export function HyperText({
     };
   }, [children, duration, isAnimating, characterSet]);
 
+  // Per-character hover scramble
+  const startHoverLoop = useCallback(() => {
+    if (hoverIntervalId.current !== null) return;
+
+    hoverIntervalId.current = setInterval(() => {
+      if (hoveredIndices.current.size === 0) {
+        clearInterval(hoverIntervalId.current!);
+        hoverIntervalId.current = null;
+        return;
+      }
+
+      setDisplayText((prev) =>
+        prev.map((_curr, index) => {
+          if (children[index] === " ") return " ";
+          if (hoveredIndices.current.has(index))
+            return getRandomChar(characterSet);
+          return children[index];
+        })
+      );
+    }, HOVER_INTERVAL_MS);
+  }, [children, characterSet]);
+
+  const handleCharEnter = useCallback(
+    (index: number) => {
+      if (!initialDone || !animateOnHover) return;
+      hoveredIndices.current.add(index);
+      startHoverLoop();
+    },
+    [initialDone, animateOnHover, startHoverLoop]
+  );
+
+  const handleCharLeave = useCallback(
+    (index: number) => {
+      hoveredIndices.current.delete(index);
+      setDisplayText((prev) =>
+        prev.map((curr, i) => (i === index ? children[i] : curr))
+      );
+    },
+    [children]
+  );
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverIntervalId.current !== null) {
+        clearInterval(hoverIntervalId.current);
+      }
+    };
+  }, []);
+
   return (
-    <MotionComponent
-      ref={elementRef}
+    <Component
+      ref={elementRef as React.RefObject<never>}
       className={`hyper-text ${className || ""}`}
-      onMouseEnter={handleAnimationTrigger}
-      {...props}
     >
-      <AnimatePresence>
-        {displayText.map((letter, index) => (
-          <motion.span
-            key={index}
-            className={letter === " " ? "hyper-text-space" : "hyper-text-char"}
-          >
-            {letter.toUpperCase()}
-          </motion.span>
-        ))}
-      </AnimatePresence>
-    </MotionComponent>
+      {displayText.map((char, index) => (
+        <span
+          key={index}
+          className={char === " " ? "hyper-text-space" : "hyper-text-char"}
+          onMouseEnter={() => handleCharEnter(index)}
+          onMouseLeave={() => handleCharLeave(index)}
+        >
+          {char.toUpperCase()}
+        </span>
+      ))}
+    </Component>
   );
 }
 
